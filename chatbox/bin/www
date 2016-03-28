@@ -1,0 +1,288 @@
+#!/usr/bin/env node
+
+/**
+ * Module dependencies.
+ */
+
+var app = require('../app').app;
+var storeMemory = require('../app').sessionStore;
+var debug = require('debug')('test:server');
+var http = require('http');
+var IO = require('socket.io');
+var cookieParser = require('cookie-parser');
+var userSet = require('userSet');
+var DAO = require('DAO');
+
+/**
+ * Get port from environment and store in Express.
+ */
+
+var port = normalizePort(process.env.PORT || '3000');
+app.set('port', port);
+
+/**
+ * Create HTTP server.
+ */
+
+var server = http.createServer(app);
+var io = IO(server);
+io.use(function (socket, next) {
+      
+
+     //parseCookie会解析socket.request.headers.cookie并赋值给执行socket.request.cookies
+    
+    cookieParser('sssssshhhhhhhhh')(socket.request, null, function(err){
+        if (err) {
+          console.log(err);
+          return;
+        }
+        var sessionId = socket.request.signedCookies['connect_sid'];
+        if (sessionId) {
+          //console.log('sessionId: ' + sessionId);
+          storeMemory.get(sessionId, function(err, session) {
+            if (err) {
+              console.log(err);
+              return;
+            }
+
+            if (session && session.user) {
+              //socket.request.session = session;
+              if (session.socketId == undefined) {
+                session.socketId = socket.id;
+                session.user.socketId = socket.id;
+                storeMemory.set(sessionId, session, function(err) {
+                  if (err) {
+                    console.log(err);
+                    return;
+                  }
+                  socket.request.session = session;
+                  socket.request.sessionId = sessionId;
+                  userSet.set(session.user.username, session.user);
+                  console.log('first socket');
+                  return next();
+                });
+              }
+              else if (session.socketId != socket.id){
+                console.log('new socket connect in: session-' + sessionId);
+                var oldSocket = io.sockets.connected[session.socketId];
+                if (oldSocket) {
+                  oldSocket.disconnect();
+                  console.log('old socket disconnected');
+                  session.socketId = socket.id;
+                  storeMemory.set(sessionId, session, function(err) {
+                    if (err) {
+                      console.log(err);
+                      return;
+                    }
+                    socket.request.session = session;
+                    socket.request.sessionId = sessionId;
+                    userSet.set(session.user.username, session.user);
+                    console.log('new socket for session-' + sessionId + ' connecting');
+                    return next();
+                  });
+                }
+                
+              }
+              else {
+                  console.log('reconnect');
+                  socket.request.session = session;
+                  socket.request.sessionId = sessionId;
+                  return next();
+              }
+
+            }
+          }); 
+        }
+    });
+});
+io.on('connection', function(socket){
+  console.log('a user connected');
+  console.log('user: ' + socket.request.session.user.username);
+  console.log('sessionId: ' + socket.request.sessionId);
+  console.log('socketId: ' + socket.id);
+
+  socket.on('disconnect', function(){
+    var session = socket.request.session;
+    session.socketId = undefined;
+    //console.log(session.id);
+    storeMemory.set(socket.request.sessionId, session, function(err) {
+        if (err) {
+          console.log(err);
+          return;
+        }  
+    });
+    console.log('user disconnected');
+    console.log('user: ' + socket.request.session.user.username);
+    console.log('sessionId: ' + socket.request.sessionId);
+    console.log('socketId: ' + socket.id);
+  });
+  
+  socket.on('firend req', function(friendReq){
+    if (!friendReq) {
+      return;
+    }
+    if (!friendReq.from) {
+      return;
+    }
+    if (!friendReq.to) {
+      return;
+    }
+    if (socket.request.session.user.username != friendReq.from) {
+      return;
+    }
+    if (friendReq.from == friendReq.to) {
+      console.log('cant add yourself as a friend');
+      return;
+    }   
+    DAO.friend.request(friendReq, function(err, result) {
+      if (err) {
+        return;
+      }
+      if (result == 1) {
+        var toUser = userSet.get(to);
+        if (toUser && toUser.socketId) {
+          socket.broadcast.to(toUser.socketId).emit('firend req', friendReq);
+        }
+      }
+    });
+        
+  });
+
+  socket.on('ans firend req', function(friendReq){
+    if (!friendReq) {
+      return;
+    }
+    var from = friendReq.from;
+    var to = socket.request.session.user.username;
+    if (!from) {
+      return;
+    }
+    if (!to) {
+      return;
+    }
+    if (friendReq.to != to) {
+      return;
+    }
+    var agree = friendReq.msg;
+    if (agree == true) {
+      DAO.friend.acceptReq(from, to, function(err, result) {
+        if(err) {
+          return;
+        }
+        if (result == 1) {
+          var fromUser = userSet.get(from);
+          if (fromUser && fromUser.socketId) {
+            friendReq.msg = 'we are friend now, lets chat';
+            socket.broadcast.to(fromUser.socketId).emit('ans firend req', friendReq);
+          }
+          else { 
+            var message = {from : from, to : to, content : 'we are friend now, lets chat'};
+            DAO.message.save(message);
+          }
+        }
+      });
+    }
+    else {
+      DAO.friend.refuseReq(from, to);
+    }
+    
+    
+  });
+
+
+
+  socket.on('new message', function(msg){
+    if (!msg) {
+      return;
+    }
+    if (!msg.content) {
+      return;
+    }
+    var from = socket.request.session.user.username;
+    var to = msg.to;
+    if (from != msg.from) {
+      return;
+    }
+    if (!to) {
+      return;
+    }
+    var toUser = userSet.get(to);
+    if (toUser && toUser.socketId) {
+      socket.broadcast.to(user.socketId).emit('new message', msg);
+
+    }
+    else {
+      socket.emit('new message', {from : to, to : from, content : to + ' is off line'});
+      DAO.message.save(msg);
+    }
+    //
+  });
+});
+
+/**
+ * Listen on provided port, on all network interfaces.
+ */
+
+server.listen(port);
+server.on('error', onError);
+server.on('listening', onListening);
+
+/**
+ * Normalize a port into a number, string, or false.
+ */
+
+function normalizePort(val) {
+  var port = parseInt(val, 10);
+
+  if (isNaN(port)) {
+    // named pipe
+    return val;
+  }
+
+  if (port >= 0) {
+    // port number
+    return port;
+  }
+
+  return false;
+}
+
+/**
+ * Event listener for HTTP server "error" event.
+ */
+
+function onError(error) {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+
+  var bind = typeof port === 'string'
+    ? 'Pipe ' + port
+    : 'Port ' + port;
+
+  // handle specific listen errors with friendly messages
+  switch (error.code) {
+    case 'EACCES':
+      console.error(bind + ' requires elevated privileges');
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      console.error(bind + ' is already in use');
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+}
+
+/**
+ * Event listener for HTTP server "listening" event.
+ */
+
+function onListening() {
+  var addr = server.address();
+  var bind = typeof addr === 'string'
+    ? 'pipe ' + addr
+    : 'port ' + addr.port;
+  debug('Listening on ' + bind);
+}

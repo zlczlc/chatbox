@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+  <head>
+
+    <title>Signin</title>
+    <link rel='stylesheet' href='/stylesheets/style.css' />
+    <!-- Bootstrap core CSS -->
+    <link href="//cdn.bootcss.com/bootstrap/3.3.5/css/bootstrap.min.css" rel="stylesheet">
+
+  
+  </head>
+
+  <body>
+    <br>
+    <br>
+    <br>
+    
+    <br>
+    <div class="container">
+      <div class = "row">
+        <div class="col-md-4 col-md-offset-4">
+          <h2 style="color:#F00"> <%=msg%> </h2>
+        </div>
+      </div>
+      <div class = "row">
+        <div class="col-md-4 col-md-offset-4">
+          <form class="form-signin" action = "/login" method = "post">
+            <h2 class="form-signin-heading">sign in</h2>
+            <label for="signInUsername" class="sr-only">username</label>
+            <input type="text" id="signInUsername" name = "username" class="form-control" placeholder="username" required autofocus>
+            <label for="signInPassword" class="sr-only">Password</label>
+            <input type="password" id="signInPassword" name = "password" class="form-control" placeholder="Password" required>
+            
+            <button class="btn btn-lg btn-primary btn-block" id = "signInSubmit" type="submit">Sign in</button>
+          </form>
+        </div>
+
+      </div>
+      <br>
+      <div class = "row">
+        <div class="col-md-4 col-md-offset-4">
+          <form class="form-signin" action = "/login/signup" method = "post">
+            <h2 class="form-signin-heading">or sign up</h2>
+
+            <label for="signUpUsername" class="sr-only">username</label>
+            <input type="text" id="signUpUsername" name = "username" class="form-control" placeholder="username" required autofocus>
+            <label for="signUpPassword" class="sr-only">Password</label>
+            <input type="password" id="signUpPassword" name = "password" class="form-control" placeholder="Password" required>
+            
+            <button class="btn btn-lg btn-primary btn-block" id = "signUpSubmit" type="submit">Sign up</button>
+          </form>
+        </div>
+      </div>
+      <br>
+      <br>
+      
+    </div> <!-- /container -->
+
+
+  </body>
+</html>

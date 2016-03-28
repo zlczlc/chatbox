@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>INDEX</title>
+    <link rel='stylesheet' href='/stylesheets/style.css' />
+  	<script src="/socket.io/socket.io.js"></script>
+    <script src="//code.jquery.com/jquery-1.12.0.min.js"></script>
+    <script src="//code.jquery.com/jquery-migrate-1.2.1.min.js"></script>
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+    <script>
+      
+      $().ready(function(){
+        
+        $.ajax({
+          url : '/userdata',
+          success: function(json) {  
+              //data operations
+              var data = json;
+              data.friendList.moveToHead = function(friend) {
+                var index = data.friendList.indexOf(friend);
+                if (index == -1) {
+                  return;
+                }
+                else {
+                  var head = data.friendList[index];
+                  data.friendList.splice(index, 1);
+                  data.friendList.unshift(head);
+                }
+                  
+              };
+              data.initFriendList = function() {
+                for (f in data.friendList) {
+                  f.newMessages = [];
+                }
+                for (mess in data.messageList) {
+                  data.moveToHead(mess.from);
+                  data.friendList[0].newMessages.push(mess); 
+                }
+                data.messageList = [];
+                //alert(data.messageList.length);
+              };
+              data.newMessage = function(mess) {
+                data.friendList.moveToHead(mess.from);
+                data.friendList[0].newMessages.push(mess); 
+              };
+              data.newReq = function(req) {
+                data.reqList.unshift(req);
+              };
+              data.newFriend = function(friend) {
+                friend.newMessages = [];
+                data.friendList.unshift(friend);
+              };
+              data.removeMessages = function(index) {
+                data.friendList[index].newMessages.clear(); 
+              }
+              data.removeReq = function(index) {
+                data.reqList.remove(index); 
+              }
+
+              //page operations
+              var view = {};
+              view.buildFriendTable = function() {
+
+              };
+              view.chatTo = function() {
+                
+              };
+              view.send = function() {
+                
+              };
+              view.acceptReq = function(index) {
+                
+              };
+              view.refuseReq = function(index) {
+                
+              };
+              var sendTo = function(toUser, content) {
+                socket.emit('new message', {from : data.user.username, to : toUser, content: content});
+              };
+              var requestTo = function(toUser, msg) {
+                socket.emit('friend req', {from : data.user.username, to : toUser, msg : msg});
+              };
+              var ansTo = function(toUser, accept) {
+                socket.emit('ans friend req', {from : data.user.username, to : toUser, msg : accept});
+              };
+              $('#sendBtn').click(function() {
+                
+                var content = $('#msg').val();
+                sendTo('test1', content);
+                alert(view.buildFriendTable);
+               
+              });
+
+              data.initFriendList();
+
+              var socket = io();
+              socket.on('new message', function(msg) {
+                document.getElementById('show').innerHTML += msg.content;
+              });
+              socket.on('friend req', function(friendReq) {
+                data.newReq(friendReq);
+              });
+              socket.on('ans friend req', function(friendReq) {
+                if (friendReq.msg == true) {
+
+                }
+                else {
+
+                }
+              });
+
+
+          }
+
+        });
+        
+        
+      });
+      
+  	</script>
+  </head>
+  <body>
+    <h1>Hello <%=username%></h1>
+    <p>Welcome to Chat Box</p>
+    <p><input type = "text" name = "toUser" id = "toUser"></input></p>
+    <p><textarea rows="10" cols="50" id = "show" >asdsad</textarea></p>
+    <p><input type = "text" name = "msg" id = "msg"></input></tr>
+      <input type = "button" name = "sendBtn" id = "sendBtn" value = "talk to"></input>
+    </p>
+    
+  </body>
+</html>
