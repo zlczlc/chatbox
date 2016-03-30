@@ -11,7 +11,7 @@ router.get('/', function(req, res, next) {
 		res.render('index', {username : req.session.user.username});
 	}
 	else {
-		res.redirect('login');
+		res.redirect('/users');
 	}
 });
 router.get('/userdata', function(req, res, next) {

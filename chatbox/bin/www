@@ -4,8 +4,8 @@
  * Module dependencies.
  */
 
-var app = require('../app').app;
-var storeMemory = require('../app').sessionStore;
+var app = require('../app');
+var storeMemory = app.sessionStore;
 var debug = require('debug')('test:server');
 var http = require('http');
 var IO = require('socket.io');
