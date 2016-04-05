@@ -3,126 +3,184 @@
   <head>
     <title>INDEX</title>
   	<script src="/socket.io/socket.io.js"></script>
-    <script src="//code.jquery.com/jquery-1.12.0.min.js"></script>
+    <!--script src="//code.jquery.com/jquery-1.12.0.min.js"></script>
     <script src="//code.jquery.com/jquery-migrate-1.2.1.min.js"></script>
+    
     <!-- Latest compiled and minified CSS -->
     <link rel="stylesheet" href="/stylesheets/bootstrap.min.css">
 
     <!-- Latest compiled and minified JavaScript -->
     <script src="/javaScripts/bootstrap.min.js"></script>
+    <script src = "http://ajax.googleapis.com/ajax/libs/angularjs/1.3.14/angular.min.js">
+    </script>
     <script>
-      
-      $().ready(function(){
-        
-        $.ajax({
-          url : '/userdata',
-          success: function(json) {  
-              //data operations
-              var data = json;
-              data.friendList.moveToHead = function(friend) {
-                var index = data.friendList.indexOf(friend);
+        //var data = null;
+        //var socket = io();
+        function tableController($scope, $http) {
+          $scope.data = null;
+          $scope.socket = io();
+          $scope.socket.on('new message', function(msg) {
+              if ($scope.data) {
+                $scope.$apply($scope.data.newMessage(msg));
+              }
+          });
+          $scope.socket.on('friend req', function(friendReq) {
+              if ($scope.data) {
+                //alert(1);
+                $scope.$apply($scope.data.newReq(friendReq));
+                
+              }
+          });
+          $scope.socket.on('ans friend req', function(friendReq) {
+              if ($scope.data && friendReq.msg) {
+                $scope.$apply($scope.data.newFriend(friendReq.to, friendReq.msg));
+              }
+              else {
+           
+              }
+          });    
+          var url = '/users/userdata';
+
+          $http.get(url).success(function(response) {
+            if (response == 'error') {
+
+            }
+            
+            $scope.data = response;
+            
+            $scope.data.friendList.moveToHead = function(friend) {
+                var index = $scope.data.friendList.indexOf(friend);
                 if (index == -1) {
                   return;
                 }
                 else {
-                  var head = data.friendList[index];
-                  data.friendList.splice(index, 1);
-                  data.friendList.unshift(head);
+                  var head = $scope.data.friendList[index];
+                  $scope.data.friendList.splice(index, 1);
+                  $scope.data.friendList.unshift(head);
                 }
                   
-              };
-              data.initFriendList = function() {
-                for (f in data.friendList) {
+            };
+            $scope.data.initFriendList = function() {
+                for (f in $scope.data.friendList) {
                   f.newMessages = [];
                 }
-                for (mess in data.messageList) {
-                  data.moveToHead(mess.from);
-                  data.friendList[0].newMessages.push(mess); 
+                for (mess in $scope.data.messageList) {
+                  $scope.data.moveToHead(mess.from);
+                  $scope.data.friendList[0].newMessages.push(mess); 
                 }
-                data.messageList = [];
+                $scope.data.messageList = [];
                 //alert(data.messageList.length);
-              };
-              data.newMessage = function(mess) {
-                data.friendList.moveToHead(mess.from);
-                data.friendList[0].newMessages.push(mess); 
-              };
-              data.newReq = function(req) {
-                data.reqList.unshift(req);
-              };
-              data.newFriend = function(friend) {
+            };
+            $scope.data.newMessage = function(mess) {
+                $scope.data.friendList.moveToHead(mess.from);
+                $scope.data.friendList[0].newMessages.push(mess); 
+            };
+            $scope.data.newReq = function(req) {
+                $scope.data.reqList.unshift(req);
+            };
+            $scope.data.newFriend = function(friend, msg) {
                 friend.newMessages = [];
-                data.friendList.unshift(friend);
-              };
-              data.removeMessages = function(index) {
-                data.friendList[index].newMessages.clear(); 
-              }
-              data.removeReq = function(index) {
-                data.reqList.remove(index); 
-              }
-
-              //page operations
-              var view = {};
-              view.buildFriendTable = function() {
-
-              };
-              view.chatTo = function() {
-                
-              };
-              view.send = function() {
-                
-              };
-              view.acceptReq = function(index) {
-                
-              };
-              view.refuseReq = function(index) {
-                
-              };
-              var sendTo = function(toUser, content) {
-                socket.emit('new message', {from : data.user.username, to : toUser, content: content});
-              };
-              var requestTo = function(toUser, msg) {
-                socket.emit('friend req', {from : data.user.username, to : toUser, msg : msg});
-              };
-              var ansTo = function(toUser, accept) {
-                socket.emit('ans friend req', {from : data.user.username, to : toUser, msg : accept});
-              };
-              $('#sendBtn').click(function() {
-                
-                var content = $('#msg').val();
-                sendTo('test1', content);
-                alert(view.buildFriendTable);
-               
-              });
-
-              data.initFriendList();
-
-              var socket = io();
-              socket.on('new message', function(msg) {
-                document.getElementById('show').innerHTML += msg.content;
-              });
-              socket.on('friend req', function(friendReq) {
-                data.newReq(friendReq);
-              });
-              socket.on('ans friend req', function(friendReq) {
-                if (friendReq.msg == true) {
-
+                if (msg) {
+                  friend.newMessages.push(msg);
                 }
-                else {
+                $scope.data.friendList.unshift(friend);
+            };
+            $scope.data.removeMessages = function(index) {
+                $scope.data.friendList[index].newMessages.clear(); 
+            };
+            $scope.data.removeReq = function(index) {
+                $scope.data.reqList.splice(index, 1);
+            };
+            $scope.data.sendReq = function(user) {
+              //alert(11);
+              var index = $scope.view.searchedUserList.indexOf(user);
+              //alert(index);
+              $scope.view.searchedUserList.splice(index, 1);
+              
+              //alert(index);
 
+              var request = {from : $scope.data.user.username, to : user.username, msg : user.msg};
+              
+              $scope.socket.emit('friend req', request);
+              
+            }
+            $scope.data.sendMsg = function(e) {
+                 
+                
+                if (e) {
+                  var keycode = window.event?e.keyCode:e.which;
+                  if(keycode != 13 || !e.ctrlKey){
+                    return;
+                  }
                 }
-              });
+                if (!$scope.view.currentShow) {
+                  //alert($scope.view.typingText);
+                  //$scope.view.typingText = '';
+                  return;
+                }
+                $scope.data.friendList.moveToHead($scope.view.currentFriend);
+                $scope.view.addChat($scope.typingText, 'me');
+                var friend = $scope.view.currentFriend;
+                var content = $scope.view.typingText;
+                var message = {from : $scope.data.user.username, to : friend.username, content : content};
+                $scope.socket.emit('new message', message);
+                $scope.view.typingText = '';
 
+            };
+            $scope.view = {};
+            $scope.view.typingText = '';
+            $scope.view.currentShow = null;
+            $scope.view.currentFriend = null;
+            $scope.view.searchKeyword = null;
+            $scope.view.searchedUserList = null;
+            $scope.view.search = function() {
+               if ($scope.view.searchKeyword == null) {
+                return;
+               }
+               if ($scope.view.searchKeyword == 'Search...') {
+                return;
+               }
+               if ($scope.view.searchKeyword.length < 1) {
+                return;
+               }
+               var url = '/users/userlist/' + $scope.view.searchKeyword;
+               $http.get(url).success(function(response) {
+                  if (response == 'error') {
+                    return;
+                  }
+                  $scope.view.searchedUserList = response;
 
-          }
+                });
 
-        });
+            };
+            $scope.view.showChat = function(friend) {
+              $scope.view.currentShow = firend.show;
+              
+              $scope.view.currentFriend = friend;
+              
+              for (msg in friend.newMessages) {
+                $scope.view.addChat(msg);
+                
+              }
+              friend.newMessages.clear();
+            };
+            $scope.view.addChat = function(msg, teller) {
+              if (teller == 'me')
+                msg.type = 'text-right';
+              else {
+                msg.type = 'text-left';
+              }
+              $scope.view.currentShow.push(msg);
+            };
+            $scope.data.initFriendList();
+          });
+        }
+        var app = angular.module("app", []);
+        app.controller('tableController', tableController);
         
-        
-      });
-      
-  	</script>
+      </script>
   </head>
-  <body>
+  <body ng-app="app" ng-controller="tableController">
 
     <nav class="navbar navbar-inverse">
       <div class="container-fluid">
@@ -133,104 +191,69 @@
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </button>
-          <a class="navbar-brand" href="#">Project name</a>
+          <a class="navbar-brand" href="#">Chat box</a>
         </div>
         <div id="navbar" class="navbar-collapse collapse">
           <ul class="nav navbar-nav navbar-right">
-            <li><a href="#">Dashboard</a></li>
             <li><a href="#">Settings</a></li>
             <li><a href="#">Profile</a></li>
-            <li><a href="#">Help</a></li>
+            <li><a href="/users/logoutsession">Log Out</a></li>
           </ul>
           <form class="navbar-form navbar-right">
-            <input type="text" class="form-control" placeholder="Search...">
+            <input ng-change="view.search()" ng-model="view.searchKeyword" type="text" class="form-control" placeholder="Search..."></input>
           </form>
         </div>
       </div>
     </nav>
 
     <div class="container-fluid">
+      
       <div class="row">
         <div class="col-sm-3 col-md-2 sidebar" style="overflow:auto;height:1000px;">
           <ul class="list-group">
-            <li><a href="#">Reports<span class="badge" color="red">42</span></a></li>
-            <li class="list-group-item">
-              <span class="badge">14</span>
-              Cras justo odio
+            
+            <li ng-click="view.showChat(friend)" ng-repeat="friend in data.friendList" class="list-group-item">
+              <span ng-show="friend.newMessages > 0" class="badge">
+                {{firend.newMessages.length}}</span>
+                {{friend.username}}
             </li>
-            <li class="list-group-item">
-              <span class="badge">14</span>
-              Cras justo odio
-            </li>
-            <li class="list-group-item">
-              <span class="badge">14</span>
-              Cras justo odio
-            </li>
-            <li class="list-group-item">
-              <span class="badge">14</span>
-              Cras justo odio
-            </li>
-            <li class="list-group-item">
-              <span class="badge">14</span>
-              Cras justo odio
-            </li>
-            <li><a href="#">Export</a></li>
-            <li><a href="#">Reports</a></li>
-            <li><a href="#">Analytics</a></li>
-            <li><a href="#">Export</a></li>
-            <li><a href="#">Reports</a></li>
-            <li><a href="#">Analytics</a></li>
-            <li><a href="#">Export</a></li>
-            <li><a href="#">Reports</a></li>
-            <li><a href="#">Analytics</a></li>
-            <li><a href="#">Export</a></li>
-            <li><a href="#">Reports</a></li>
-            <li><a href="#">Analytics</a></li>
-            <li><a href="#">Export</a></li>
-            <li><a href="#">Reports</a></li>
-            <li><a href="#">Analytics</a></li>
-            <li><a href="#">Export</a></li>
-            <li><a href="#">Reports</a></li>
-            <li><a href="#">Analytics</a></li>
-            <li><a href="#">Export</a></li>
-            <li><a href="#">Reports</a></li>
-            <li><a href="#">Analytics</a></li>
-            <li><a href="#">Export</a></li>
-            <li><a href="#">Reports</a></li>
-            <li><a href="#">Analytics</a></li>
-            <li><a href="#">Export</a></li>
-            <li><a href="#">Reports</a></li>
-            <li><a href="#">Analytics</a></li>
-            <li><a href="#">Export</a></li>
-            <li><a href="#">Reports</a></li>
-            <li><a href="#">Analytics</a></li>
-            <li><a href="#">Export</a></li>
-            <li><a href="#">Reports</a></li>
-            <li><a href="#">Analytics</a></li>
-            <li><a href="#">Export</a></li>
-            <li><a href="#">Reports</a></li>
-            <li><a href="#">Analytics</a></li>
-            <li><a href="#">Export</a></li>
-            <li><a href="#">Reports</a></li>
-            <li><a href="#">Analytics</a></li>
-            <li><a href="#">Export</a></li>
-            <li><a href="#">Reports</a></li>
-            <li><a href="#">Analytics</a></li>
-            <li><a href="#">Export</a></li>
-            <li><a href="#">Reports</a></li>
-            <li><a href="#">Analytics</a></li>
-            <li><a href="#">Export</a></li>
+            
           </ul>
           
         </div>
         <div class="col-sm-4 col-sm-offset-1 col-md-6 col-md-offset-1 main">
-          <h1 class="page-header"><%=username%></h1>
-          <textarea class="form-control" rows="30" readonly="readonly"></textarea>
-          <textarea class="form-control" rows="6"></textarea>
-          <button class="btn btn-primary btn-block" type="submit"><h4>send</h4></button>
+          <h1 class="page-header">Hello <%=username%></h1>
+          
+          <div class="panel panel-default" style="overflow:auto;height:600px;">
+            <p ng-repeat="msg in view.currentShow" ng-class="msg.type">{{msg}}</p>
+          </div>
+          <textarea ng-model="view.typingText" ng-bind="view.typingText" ng-keyup="data.sendMsg($event)" class="form-control" rows="6" ></textarea>
+          <button ng-click="data.sendMsg()" class="btn btn-primary btn-block"><h4>send</h4></button>
         </div>
-        <div class="col-sm-3 col-md-3 sidebar" style="overflow:auto">
-          asdasdas
+        <div class="col-sm-4 col-md-2 sidebar" style="overflow:auto;height:1000px;">
+          <br/>
+          <br/>
+          <br/>
+          <br/>
+          <ul class="list-group">
+            
+            <li ng-click="user.visible = true" ng-repeat="user in view.searchedUserList" class="list-group-item">
+                {{user.username}}
+                <form ng-show="user.visible" class="form-inline">
+                  <input ng-model="user.msg" type="text" class="form-control" placeholder="leave some message"></input>
+                  <button ng-click="data.sendReq(user)" type="button" class="btn btn-default navbar-btn">Add friend</button>
+                </form>
+            </li>
+          </ul>
+          <hr/>
+          <ul class="list-group">
+            
+            <li ng-repeat="req in data.reqList" class="list-group-item">
+                {{req.from}}
+                <button type="button" class="btn btn-default navbar-btn">Add friend</button>
+            </li>
+          </ul>
+          
         </div>
       </div>
     </div> 
