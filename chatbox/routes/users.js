@@ -17,6 +17,7 @@ router.get('/', function(req, res, next) {
   }
     
 });
+
 //login 
 router.post('/loginsession', function(req, res, next) {
   if (req.session.user) {
@@ -151,4 +152,50 @@ router.get('/logoutsession', function(req, res, next) {
   });
 });
 
+router.get('/userdata', function(req, res, next) {
+  console.log('send paras');
+  //res.render('index', {username : 'aaaaa'});
+  if (!req.session.user) {
+    res.send('need to login');
+    return;
+  }
+  var username = req.session.user.username;
+  DAO.friend.getList(username, function(err, friendList) {
+    if (err) {
+      res.send('error');
+      return;
+    }
+    DAO.friend.getReqs(username, function(err, reqList) {
+      if (err) {
+        res.send('error');
+        return;
+      }
+      DAO.message.getByUser(null, username, function(err, messageList) {
+        if (err) {
+          res.send('error');
+          return;
+        }
+        var data = {
+          user : req.session.user,
+          reqList : reqList,
+          friendList : friendList,
+          messageList : messageList
+        };
+        res.json(data);
+      });
+
+    }); 
+  }); 
+});
+
+router.get('/userlist/:keyword', function(req, res, next) { 
+  var keyword = req.params.keyword;
+  DAO.user.searchByWord(keyword, function(err, users) {
+    if (err) {
+      res.send('error');
+      return;
+    }
+    res.json(users);
+  });
+});
 module.exports = router;
