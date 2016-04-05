@@ -117,7 +117,8 @@ io.on('connection', function(socket){
     console.log('socketId: ' + socket.id);
   });
   
-  socket.on('firend req', function(friendReq){
+  socket.on('friend req', function(friendReq){
+    console.log('receive a friendReq');
     if (!friendReq) {
       return;
     }
@@ -139,16 +140,17 @@ io.on('connection', function(socket){
         return;
       }
       if (result == 1) {
-        var toUser = userSet.get(to);
+        var toUser = userSet.get(friendReq.to);
         if (toUser && toUser.socketId) {
-          socket.broadcast.to(toUser.socketId).emit('firend req', friendReq);
+          console.log('send friend req to ' + toUser.username);
+          socket.broadcast.to(toUser.socketId).emit('friend req', friendReq);
         }
       }
     });
         
   });
 
-  socket.on('ans firend req', function(friendReq){
+  socket.on('ans friend req', function(friendReq){
     if (!friendReq) {
       return;
     }
@@ -173,7 +175,7 @@ io.on('connection', function(socket){
           var fromUser = userSet.get(from);
           if (fromUser && fromUser.socketId) {
             friendReq.msg = 'we are friend now, lets chat';
-            socket.broadcast.to(fromUser.socketId).emit('ans firend req', friendReq);
+            socket.broadcast.to(fromUser.socketId).emit('ans friend req', friendReq);
           }
           else { 
             var message = {from : from, to : to, content : 'we are friend now, lets chat'};
