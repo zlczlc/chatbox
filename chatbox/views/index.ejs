@@ -8,11 +8,11 @@
     
     <!-- Latest compiled and minified CSS -->
     <link rel="stylesheet" href="/stylesheets/bootstrap.min.css">
-
-    <!-- Latest compiled and minified JavaScript -->
-    <script src="/javaScripts/bootstrap.min.js"></script>
     <script src = "http://ajax.googleapis.com/ajax/libs/angularjs/1.3.14/angular.min.js">
     </script>
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="/javaScripts/bootstrap.min.js"></script>
+    
     <script>
         //var data = null;
         //var socket = io();
@@ -20,6 +20,7 @@
           $scope.data = null;
           $scope.socket = io();
           $scope.socket.on('new message', function(msg) {
+             //
               if ($scope.data) {
                 $scope.$apply($scope.data.newMessage(msg));
               }
@@ -33,7 +34,7 @@
           });
           $scope.socket.on('ans friend req', function(friendReq) {
               if ($scope.data && friendReq.msg) {
-                $scope.$apply($scope.data.newFriend(friendReq.to, friendReq.msg));
+                $scope.$apply($scope.data.newFriend({username : friendReq.to}, friendReq.msg));
               }
               else {
            
@@ -47,7 +48,7 @@
             }
             
             $scope.data = response;
-            
+            //alert(response.friendList[0]);
             $scope.data.friendList.moveToHead = function(friend) {
                 var index = $scope.data.friendList.indexOf(friend);
                 if (index == -1) {
@@ -61,37 +62,61 @@
                   
             };
             $scope.data.initFriendList = function() {
-                for (f in $scope.data.friendList) {
-                  f.newMessages = [];
+                for (var i = 0; i < $scope.data.friendList.length; i++) {
+                  $scope.data.friendList[i].messages = [];
+                  $scope.data.friendList[i].newMessageCnt = 0;
+                  $scope.data.friendList[i].viewed = false;
                 }
-                for (mess in $scope.data.messageList) {
-                  $scope.data.moveToHead(mess.from);
-                  $scope.data.friendList[0].newMessages.push(mess); 
+                for (var i = 0; i < $scope.data.messageList.length; i++) {
+                  var mess = $scope.data.messageList[i];
+                  $scope.data.newMessage(mess);
                 }
                 $scope.data.messageList = [];
                 //alert(data.messageList.length);
             };
             $scope.data.newMessage = function(mess) {
-                $scope.data.friendList.moveToHead(mess.from);
-                $scope.data.friendList[0].newMessages.push(mess); 
+                var friendName;
+                var cntP;
+                if (mess.from == $scope.data.user.username) {
+                  friendName = mess.to;
+                  mess.type = 'text-right';
+                  cntP = 0;
+                }
+                else {
+                  friendName = mess.from;
+                  mess.type = 'text-left';
+                  cntP = 1;
+                }
+                $scope.data.friendList.moveToHead(friendName);
+                $scope.data.friendList[0].messages.push(mess); 
+                
+                $scope.data.friendList[0].newMessageCnt += cntP;
+                
+                if ($scope.view.currentFriend && friendName == $scope.view.currentFriend.username) {
+                  
+                  $scope.view.currentFriend.newMessageCnt = 0;
+                }
+                
             };
             $scope.data.newReq = function(req) {
                 $scope.data.reqList.unshift(req);
             };
             $scope.data.newFriend = function(friend, msg) {
-                friend.newMessages = [];
+                friend.messages = [];
                 if (msg) {
-                  friend.newMessages.push(msg);
+                  friend.messages.push(msg);
                 }
                 $scope.data.friendList.unshift(friend);
             };
-            $scope.data.removeMessages = function(index) {
-                $scope.data.friendList[index].newMessages.clear(); 
+            $scope.data.removeMessages = function(friend) {
+                friend.messages.clear(); 
             };
-            $scope.data.removeReq = function(index) {
-                $scope.data.reqList.splice(index, 1);
+            $scope.data.removeReq = function(request) {
+                var index = $scope.data.reqList.indexOf(request);
+                if (index != -1)
+                  $scope.data.reqList.splice(index, 1);
             };
-            $scope.data.sendReq = function(user) {
+            $scope.sendReq = function(user) {
               //alert(11);
               var index = $scope.view.searchedUserList.indexOf(user);
               //alert(index);
@@ -104,7 +129,17 @@
               $scope.socket.emit('friend req', request);
               
             }
-            $scope.data.sendMsg = function(e) {
+            $scope.ansReq = function(request, agree) {
+              
+              if (agree == true) {
+                var friend = {username : request.from};
+                $scope.data.newFriend(friend);
+              }
+              $scope.data.removeReq(request);
+              request.msg = agree;
+              $scope.socket.emit('ans friend req', request);
+            };
+            $scope.sendMsg = function(e) {
                  
                 
                 if (e) {
@@ -113,23 +148,23 @@
                     return;
                   }
                 }
-                if (!$scope.view.currentShow) {
+
+                if ($scope.view.currentFriend == null) {
                   //alert($scope.view.typingText);
                   //$scope.view.typingText = '';
+                  
                   return;
                 }
-                $scope.data.friendList.moveToHead($scope.view.currentFriend);
-                $scope.view.addChat($scope.typingText, 'me');
-                var friend = $scope.view.currentFriend;
                 var content = $scope.view.typingText;
-                var message = {from : $scope.data.user.username, to : friend.username, content : content};
+                var message = {from : $scope.data.user.username, to : $scope.view.currentFriend.username, content : content};
                 $scope.socket.emit('new message', message);
+                message.type = 'text-right';
+                $scope.data.newMessage(message);
                 $scope.view.typingText = '';
-
+                
             };
             $scope.view = {};
             $scope.view.typingText = '';
-            $scope.view.currentShow = null;
             $scope.view.currentFriend = null;
             $scope.view.searchKeyword = null;
             $scope.view.searchedUserList = null;
@@ -154,24 +189,22 @@
 
             };
             $scope.view.showChat = function(friend) {
-              $scope.view.currentShow = firend.show;
               
+              if ($scope.view.currentFriend) {
+                $scope.view.currentFriend.type = 'list-group-item';
+              }
+              friend.type = 'list-group-item active';
+              friend.newMessageCnt = 0;
               $scope.view.currentFriend = friend;
-              
-              for (msg in friend.newMessages) {
-                $scope.view.addChat(msg);
-                
+
+              if (!friend.viewed) {
+
+                $scope.socket.emit('messages viewed', {from : friend.username, to : $scope.data.user.username});
+                friend.viewed = true;
+
               }
-              friend.newMessages.clear();
             };
-            $scope.view.addChat = function(msg, teller) {
-              if (teller == 'me')
-                msg.type = 'text-right';
-              else {
-                msg.type = 'text-left';
-              }
-              $scope.view.currentShow.push(msg);
-            };
+            
             $scope.data.initFriendList();
           });
         }
@@ -181,7 +214,6 @@
       </script>
   </head>
   <body ng-app="app" ng-controller="tableController">
-
     <nav class="navbar navbar-inverse">
       <div class="container-fluid">
         <div class="navbar-header">
@@ -212,23 +244,27 @@
         <div class="col-sm-3 col-md-2 sidebar" style="overflow:auto;height:1000px;">
           <ul class="list-group">
             
-            <li ng-click="view.showChat(friend)" ng-repeat="friend in data.friendList" class="list-group-item">
-              <span ng-show="friend.newMessages > 0" class="badge">
-                {{firend.newMessages.length}}</span>
+            <a ng-click="view.showChat(friend)" ng-repeat="friend in data.friendList" ng-class="friend.type" class="list-group-item" href>
+              <span ng-show="friend.newMessageCnt > 0" class="badge">
+                {{friend.newMessageCnt}}</span>
                 {{friend.username}}
-            </li>
+            </a>
             
           </ul>
           
         </div>
+
+        
+
         <div class="col-sm-4 col-sm-offset-1 col-md-6 col-md-offset-1 main">
           <h1 class="page-header">Hello <%=username%></h1>
-          
-          <div class="panel panel-default" style="overflow:auto;height:600px;">
-            <p ng-repeat="msg in view.currentShow" ng-class="msg.type">{{msg}}</p>
-          </div>
-          <textarea ng-model="view.typingText" ng-bind="view.typingText" ng-keyup="data.sendMsg($event)" class="form-control" rows="6" ></textarea>
-          <button ng-click="data.sendMsg()" class="btn btn-primary btn-block"><h4>send</h4></button>
+          <div ng-show="view.currentFriend">
+            <div class="panel panel-default" style="overflow:auto;height:600px;">
+              <h1 ng-repeat="msg in view.currentFriend.messages" ng-class="msg.type">{{msg.content}}</h1>
+            </div>
+            <textarea ng-model="view.typingText" ng-bind="view.typingText" ng-keyup="sendMsg($event)" class="form-control" rows="6"></textarea>
+            <button ng-click="sendMsg()" class="btn btn-primary btn-block"><h4>send</h4></button>
+        </div>
         </div>
         <div class="col-sm-4 col-md-2 sidebar" style="overflow:auto;height:1000px;">
           <br/>
@@ -237,21 +273,27 @@
           <br/>
           <ul class="list-group">
             
-            <li ng-click="user.visible = true" ng-repeat="user in view.searchedUserList" class="list-group-item">
+            <a ng-click="user.visible = !user.visible" ng-repeat="user in view.searchedUserList" class="list-group-item">
                 {{user.username}}
                 <form ng-show="user.visible" class="form-inline">
                   <input ng-model="user.msg" type="text" class="form-control" placeholder="leave some message"></input>
-                  <button ng-click="data.sendReq(user)" type="button" class="btn btn-default navbar-btn">Add friend</button>
+                  <button ng-click="sendReq(user)" type="button" class="btn btn-default navbar-btn">Add friend</button>
                 </form>
-            </li>
+            </a>
           </ul>
           <hr/>
           <ul class="list-group">
             
-            <li ng-repeat="req in data.reqList" class="list-group-item">
-                {{req.from}}
-                <button type="button" class="btn btn-default navbar-btn">Add friend</button>
-            </li>
+            <a ng-repeat="req in data.reqList" class="list-group-item">
+                <h3>{{req.from}} says:</h3>
+                {{req.msg}}
+                <form class="form-inline">
+                  <button ng-click="ansReq(req, true)" type="button" class="btn btn-success navbar-btn">Agree to be friend</button>
+                  &nbsp;  &nbsp;
+                  <button ng-click="ansReq(req, false)" type="button" class="btn btn-danger navbar-btn">No  &nbsp; &nbsp;</button>
+                 
+                </form>
+            </a>
           </ul>
           
         </div>
