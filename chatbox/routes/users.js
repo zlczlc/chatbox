@@ -50,12 +50,14 @@ router.post('/loginsession', function(req, res, next) {
       res.render('login', {msg:'wrong password'});
     }
     else if (result == 1) {
+      console.log('session: ' + req.session.id);
       req.session.regenerate(function(err) {
         if (err) {
           console.log(err);
           res.render('login', {msg:'some thing wrong!'});
           return;
         }
+        console.log('regenerated session: ' + req.session.id);
         if (userSet.get(username)) {
           var u = userSet.get(username);
           if (u.sessionId) {
@@ -65,17 +67,19 @@ router.post('/loginsession', function(req, res, next) {
                         res.render('login', {msg:'some thing wrong!'});
                         return;
                     }
-                    if (session.user) {
+                    //if (!session)
+                    if (session && session.user) {
                       session.user = undefined;
                       //userSet.remove(username);
 
                       storeMemory.set(u.sessionId, session, function(err) {
                             if (err) {
                               console.log(err);
+                              res.render('login', {msg:'some thing wrong!'});
                               return;
                             }
-                  console.log('log out with old session');
-                });
+                            console.log('log out with old session');
+                      });
                     }
                   });
           }
@@ -170,6 +174,7 @@ router.get('/userdata', function(req, res, next) {
         res.send('error');
         return;
       }
+      
       DAO.message.getByUser(null, username, function(err, messageList) {
         if (err) {
           res.send('error');

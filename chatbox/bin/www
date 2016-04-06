@@ -151,6 +151,7 @@ io.on('connection', function(socket){
   });
 
   socket.on('ans friend req', function(friendReq){
+    console.log('got an ans req');
     if (!friendReq) {
       return;
     }
@@ -174,6 +175,7 @@ io.on('connection', function(socket){
         if (result == 1) {
           var fromUser = userSet.get(from);
           if (fromUser && fromUser.socketId) {
+            console.log('agree');
             friendReq.msg = 'we are friend now, lets chat';
             socket.broadcast.to(fromUser.socketId).emit('ans friend req', friendReq);
           }
@@ -185,13 +187,30 @@ io.on('connection', function(socket){
       });
     }
     else {
+      console.log('refuse');
       DAO.friend.refuseReq(from, to);
     }
     
     
   });
 
+  socket.on('messages viewed', function(msg){
+    console.log('messages viewed');
+    if (!msg)
+      return;
+    var from = msg.from;
+    var to = msg.to;
+    if (!from || !to) {
+      return;
+    }
+    if (to != socket.request.session.user.username) {
+      return;
+    }
 
+    DAO.message.deleteByUser(from, to, function(err) {
+      
+    });
+  });
 
   socket.on('new message', function(msg){
     if (!msg) {
@@ -208,13 +227,18 @@ io.on('connection', function(socket){
     if (!to) {
       return;
     }
+    console.log('new message');
     var toUser = userSet.get(to);
+    console.log('to: ' + JSON.stringify(to));
     if (toUser && toUser.socketId) {
-      socket.broadcast.to(user.socketId).emit('new message', msg);
+      console.log('send new message to ' + to);
+      socket.broadcast.to(toUser.socketId).emit('new message', msg);
 
     }
     else {
+      console.log(to + ' is off line');
       socket.emit('new message', {from : to, to : from, content : to + ' is off line'});
+      console.log('save message to db');
       DAO.message.save(msg);
     }
     //
